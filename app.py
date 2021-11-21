@@ -87,6 +87,16 @@ def left_chat_member(resp):
     inc_text = "{fname} has left the group. Sorry to see you go!".format(fname=first_name)
     return inc_text
 
+def get_user_id(resp_message, msg_type):
+    if msg_type == 'text':
+        user_id = resp_message['reply_to_message']['text'].split(
+                                    "Chat ID: ")[-1]  # Get the chat id to send message to
+    elif msg_type == 'photo/document':
+        user_id = resp_message['reply_to_message']['caption'].split(
+                                    "Chat ID: ")[-1]  # Get the chat id to send message to
+    else:
+        return
+    return user_id
 
 
 @app.route("/", methods=["POST", "GET"])
@@ -128,8 +138,7 @@ def telegram_app_POST():
                     if 'reply_to_message' in resp_message: # Message is sent by reply method
                         if 'photo' in resp_message['reply_to_message'] or 'document' in resp_message['reply_to_message']: # Replying to a photo/document with a photo
                             if (resp_message['reply_to_message']['from']['id'] == BOT_ID and "Chat ID:" in resp_message['reply_to_message']['caption']): # Check if the message is a reply message to the bot's message
-                                user_id = resp_message['reply_to_message']['caption'].split(
-                                    "Chat ID: ", 1)[1]  # Get the chat id to send message to
+                                user_id = get_user_id(resp_message, 'photo/document') # Get the chat id to send message to
                                 caption = caption + \
                                     "\n\nFrom: {fname}".format(fname=COMPANYNAME) # Create a caption from the customer support group
                                 response = send_photo(user_id, file_id, caption)
@@ -144,8 +153,7 @@ def telegram_app_POST():
                         
                         else: # Replying to a text message with a photo
                             if (resp_message['reply_to_message']['from']['id'] == BOT_ID and "Chat ID:" in resp_message['reply_to_message']['text']): # Check if the message is a reply message to the bot's message
-                                user_id = resp_message['reply_to_message']['text'].split(
-                                    "Chat ID: ", 1)[1]  # Get the chat id to send message to
+                                user_id = get_user_id(resp_message, 'text') # Get the chat id to send message to
                                 caption = caption + \
                                     "\n\nFrom: {fname}".format(fname=COMPANYNAME) # Create a caption from the customer support group
                                 response = send_photo(user_id, file_id, caption)
@@ -198,8 +206,7 @@ def telegram_app_POST():
                     if 'reply_to_message' in resp_message: # Message is sent by reply method
                         if 'photo' in resp_message['reply_to_message'] or 'document' in resp_message['reply_to_message']: # Replying to a photo/document with a document
                             if (resp_message['reply_to_message']['from']['id'] == BOT_ID and "Chat ID:" in resp_message['reply_to_message']['caption']): # Check if the message is a reply message to the bot's message
-                                user_id = resp_message['reply_to_message']['caption'].split(
-                                    "Chat ID: ", 1)[1]  # Get the chat id to send message to
+                                user_id = get_user_id(resp_message, 'photo/document') # Get the chat id to send message to
                                 caption = caption + \
                                             "\n\nFrom: {fname}".format(fname=COMPANYNAME) # Create a caption from the customer support
                                 response = send_document(user_id, file_id, caption)
@@ -214,8 +221,7 @@ def telegram_app_POST():
 
                         else: # Replying to a text message with a document
                             if (resp_message['reply_to_message']['from']['id'] == BOT_ID and "Chat ID:" in resp_message['reply_to_message']['text']): # Check if the message is a reply message to the bot's message
-                                user_id = resp_message['reply_to_message']['text'].split(
-                                    "Chat ID: ", 1)[1]  # Get the chat id to send message to
+                                user_id = get_user_id(resp_message, 'text') # Get the chat id to send message to
                                 caption = caption + \
                                     "\n\nFrom: {fname}".format(fname=COMPANYNAME) # Create a caption from the customer support
                                 response = send_document(user_id, file_id, caption)
@@ -280,8 +286,7 @@ def telegram_app_POST():
                     elif 'reply_to_message' in resp_message:   
                         if 'photo' in resp_message['reply_to_message'] or 'document' in resp_message['reply_to_message']: # Replying to a photo/document with a text
                             if (resp_message['reply_to_message']['from']['id'] == BOT_ID and "Chat ID:" in resp_message['reply_to_message']['caption']): # Check if the message is a reply message
-                                user_id = resp_message['reply_to_message']['caption'].split(
-                                        "Chat ID: ", 1)[1]  # Get the chat id to send message to
+                                user_id = get_user_id(resp_message, 'photo/document') # Get the chat id to send message to
                                 outgoing_text = inc_text + \
                                         "\n\nFrom: {fname}".format(fname=COMPANYNAME) # Create a caption from the customer support
                                 response = send_message(outgoing_text, user_id)
@@ -296,8 +301,7 @@ def telegram_app_POST():
                         
                         else: # Replying to a text message with a text
                             if (resp_message['reply_to_message']['from']['id'] == BOT_ID and "Chat ID:" in resp_message['reply_to_message']['text']): # Check if the message is a reply message
-                                user_id = resp_message['reply_to_message']['text'].split(
-                                    "Chat ID: ", 1)[1]  # Get the chat id to send message to
+                                user_id = get_user_id(resp_message, 'text') # Get the chat id to send message to
                                 outgoing_text = inc_text + \
                                     "\n\nFrom: {fname}".format(fname=COMPANYNAME)
                                 response = send_message(outgoing_text, user_id)
@@ -324,12 +328,16 @@ def telegram_app_POST():
                         print('Not Found.')
                     else:
                         print('Unknown error.')
-            else: # Unknown message received
+            else: # Unknown message received/error handling
                 chat_id = get_chat_id(resp_message)
                 if (chat_id == GROUP_ID):
-                    print('An unexpected event has been triggered within this group.')
+                    if resp_message['reply_to_message']['from']['id'] == BOT_ID: # Check if the message is a reply message
+                        warning = 'Your message has not been sent to the user because it is currently not supported by the bot. This bot only takes in text, photos, documents and emojis.'
+                        response = send_message(warning, chat_id) # Write warning message to group chat
+                    else:
+                        print('An unexpected event has been triggered within this group.')
                 else:
-                    warning = 'This bot only takes in text, photos, documents and emojis. All other types of messages will be supported in the future.'
+                    warning = 'Your message has not been received as this bot only takes in text, photos, documents and emojis. All other types of messages will be supported in the future.'
                     response = send_message(warning, chat_id) # Write warning message to group chat
                     if response.status_code == 200:
                         print("Warning sent to user.")
@@ -340,4 +348,5 @@ def telegram_app_POST():
         else:
             print("Response does not contain message.")
     return "done"  # status 200 OK by default
+
 
